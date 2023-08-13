@@ -1,0 +1,57 @@
+---
+- hosts: raspberry_pi
+  vars:
+    git_user_name: "{{ lookup('env', 'GIT_USER_NAME') }}"
+    git_user_email: "{{ lookup('env', 'GIT_USER_EMAIL') }}"
+    ssh_key_passphrase: "{{ lookup('env', 'SSH_KEY_PASSPHRASE') }}"
+    nfs_server: "{{ lookup('env', 'NFS_SERVER') }}"
+    nfs_path: "{{ lookup('env', 'NFS_PATH') }}"
+    mount_point: "{{ lookup('env', 'MOUNT_POINT') }}"
+
+  tasks:
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+      become: yes
+
+    - name: Set Git user name
+      git_config:
+        scope: global
+        name: user.name
+        value: "{{ git_user_name }}"
+
+    - name: Set Git user email
+      git_config:
+        scope: global
+        name: user.email
+        value: "{{ git_user_email }}"
+
+    - name: Generate SSH key
+      user:
+        name: "{{ ansible_user }}"
+        generate_ssh_key: yes
+        ssh_key_bits: 2048
+        ssh_key_file: .ssh/id_rsa
+        ssh_key_passphrase: "{{ ssh_key_passphrase }}"
+
+    - name: Install NFS client utilities
+      apt:
+        name: nfs-common
+        state: present
+      become: yes
+
+    - name: Create the mount point
+      file:
+        path: "{{ mount_point }}"
+        state: directory
+        mode: '0755'
+      become: yes
+
+    - name: Mount the NFS share
+      mount:
+        path: "{{ mount_point }}"
+        src: "{{ nfs_server }}:{{ nfs_path }}"
+        fstype: nfs
+        state: mounted
+      become: yes
