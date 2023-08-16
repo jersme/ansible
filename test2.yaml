@@ -13,11 +13,11 @@
       apt:
         update_cache: yes
         upgrade: safe
-    
+
     - name: Set Hostname
       hostname:
         name: "{{ inventory_hostname }}"
-    
+
     - name: Disable Swap
       command: "{{ item }}"
       with_items:
@@ -31,12 +31,35 @@
   tasks:
     - name: Install Docker
       shell: curl -sSL https://get.docker.com | sh
-    
+
     - name: Add User to Docker Group
       user:
         name: "{{ ansible_user }}"
         group: docker
         append: yes
+
+- name: Configure Containerd for Kubernetes
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure CRI is enabled in containerd configuration
+      lineinfile:
+        path: /etc/containerd/config.toml
+        regexp: '^ *disabled_plugins ?= ?\["cri"\]'
+        line: '  [plugins.cri]'
+        state: present
+
+    - name: Restart containerd to apply changes
+      systemd:
+        name: containerd
+        state: restarted
+        daemon_reload: yes
+
+    - name: Verify containerd is running
+      command: systemctl status containerd
+      register: containerd_status
+      failed_when: "'active (running)' not in containerd_status.stdout"
+      changed_when: false
 
 - name: Install Kubernetes Components
   hosts: all
@@ -45,11 +68,11 @@
     - name: Add Kubernetes APT Key
       apt_key:
         url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
-      
+
     - name: Add Kubernetes APT Repository
       apt_repository:
         repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
-      
+
     - name: Install Kubeadm, Kubelet, and Kubectl
       apt:
         name: "{{ item }}"
@@ -118,7 +141,7 @@
           parameters:
             server: "{{ lookup('env', 'NAS_IP') }}"
             path: "{{ lookup('env', 'NFS_PATH') }}"
-    
+
     - name: Create a PersistentVolume
       k8s:
         state: present
@@ -136,7 +159,7 @@
             nfs:
               server: "{{ lookup('env', 'NAS_IP') }}"
               path: "{{ lookup('env', 'NFS_PATH') }}"
-    
+
     - name: Create a PersistentVolumeClaim
       k8s:
         state: present
