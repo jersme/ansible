@@ -1,0 +1,154 @@
+---
+- name: Set Global Variables
+  hosts: all
+  vars:
+    ansible_user: "{{ lookup('env', 'ANSIBLE_USER') }}"
+  tasks: []
+
+- name: Initial Configuration of Raspberry Pis
+  hosts: all
+  become: true
+  tasks:
+    - name: Update and Upgrade APT
+      apt:
+        update_cache: yes
+        upgrade: safe
+    
+    - name: Set Hostname
+      hostname:
+        name: "{{ inventory_hostname }}"
+    
+    - name: Disable Swap
+      command: "{{ item }}"
+      with_items:
+        - dphys-swapfile swapoff
+        - dphys-swapfile uninstall
+        - update-rc.d dphys-swapfile remove
+
+- name: Install Docker
+  hosts: all
+  become: true
+  tasks:
+    - name: Install Docker
+      shell: curl -sSL https://get.docker.com | sh
+    
+    - name: Add User to Docker Group
+      user:
+        name: "{{ ansible_user }}"
+        group: docker
+        append: yes
+
+- name: Install Kubernetes Components
+  hosts: all
+  become: true
+  tasks:
+    - name: Add Kubernetes APT Key
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+      
+    - name: Add Kubernetes APT Repository
+      apt_repository:
+        repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+      
+    - name: Install Kubeadm, Kubelet, and Kubectl
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - kubeadm
+        - kubelet
+        - kubectl
+
+- name: Initialize Kubernetes Master
+  hosts: master
+  become: true
+  tasks:
+    - name: Initialize the Kubernetes Master
+      command: kubeadm init --pod-network-cidr=10.244.0.0/16
+      register: kubeadm_init
+
+    - name: Save kubeadm join command to a file
+      copy:
+        content: "{{ kubeadm_init.stdout_lines[-1] }}"
+        dest: /home/{{ ansible_user }}/join-command.txt
+
+    - name: Fetch kubeadm join command to the control machine
+      fetch:
+        src: /home/{{ ansible_user }}/join-command.txt
+        dest: /tmp/join-command.txt
+        flat: yes
+
+    - name: Setup Kubectl for User
+      become: false
+      command: "{{ item }}"
+      with_items:
+        - mkdir -p $HOME/.kube
+        - cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+        - chown $(id -u):$(id -g) $HOME/.kube/config
+
+- name: Setup Networking for the Cluster
+  hosts: master
+  become: true
+  tasks:
+    - name: Install Flannel
+      command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+- name: Join Worker Nodes to Cluster
+  hosts: workers
+  become: true
+  vars:
+    join_command: "{{ lookup('file', '/tmp/join-command.txt') }}"
+  tasks:
+    - name: Join the Cluster
+      command: "{{ join_command }}"
+
+- name: Set Up NFS StorageClass, PVs and PVCs
+  hosts: master
+  become: true
+  tasks:
+    - name: Create NFS StorageClass
+      k8s:
+        state: present
+        definition:
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: nfs-storage
+          provisioner: kubernetes.io/nfs
+          parameters:
+            server: "{{ lookup('env', 'NAS_IP') }}"
+            path: "{{ lookup('env', 'NFS_PATH') }}"
+    
+    - name: Create a PersistentVolume
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: PersistentVolume
+          metadata:
+            name: nfs-pv
+          spec:
+            storageClassName: nfs-storage
+            capacity:
+              storage: 10Gi
+            accessModes:
+              - ReadWriteOnce
+            nfs:
+              server: "{{ lookup('env', 'NAS_IP') }}"
+              path: "{{ lookup('env', 'NFS_PATH') }}"
+    
+    - name: Create a PersistentVolumeClaim
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: nfs-pvc
+          spec:
+            storageClassName: nfs-storage
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 5Gi
