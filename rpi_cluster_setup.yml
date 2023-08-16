@@ -152,3 +152,22 @@
             resources:
               requests:
                 storage: 5Gi
+
+  - name: Install NFS client packages
+    apt:
+      name:
+        - nfs-common
+      state: present
+    become: true
+
+  - name: Add NFS mount to /etc/fstab
+    lineinfile:
+      path: /etc/fstab
+      line: "{{ NFS_SERVER }}:{{ NFS_SHARED_DIR }} /nfs-storage nfs defaults 0 0"
+      state: present
+    become: true
+
+  - name: Mount all filesystems in /etc/fstab
+    command:
+      cmd: mount -a
+    become: true
