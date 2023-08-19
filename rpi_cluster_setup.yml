@@ -103,9 +103,27 @@
       command: "{{ join_command }}"
 
 - name: Set Up NFS StorageClass, PVs and PVCs
-  hosts: master
+  hosts: all
   become: true
+  vars:
+    nas_ip: "{{ lookup('env', 'NAS_IP') }}"
+    nfs_path: "{{ lookup('env', 'NFS_PATH') }}"
+    mount_point: "/mnt/nfs"
   tasks:
+    - name: Create Directory for NFS Mount
+      file:
+        path: "{{ mount_point }}"
+        state: directory
+    
+    - name: Add NFS Mount to /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        line: "{{ nas_ip }}:{{ nfs_path }} {{ mount_point }} nfs defaults 0 0"
+        state: present
+
+    - name: Mount All Filesystems in /etc/fstab
+      command: mount -a
+    
     - name: Create NFS StorageClass
       k8s:
         state: present
@@ -116,8 +134,8 @@
             name: nfs-storage
           provisioner: kubernetes.io/nfs
           parameters:
-            server: "{{ lookup('env', 'NAS_IP') }}"
-            path: "{{ lookup('env', 'NFS_PATH') }}"
+            server: "{{ nas_ip }}"
+            path: "{{ nfs_path }}"
     
     - name: Create a PersistentVolume
       k8s:
@@ -134,8 +152,8 @@
             accessModes:
               - ReadWriteOnce
             nfs:
-              server: "{{ lookup('env', 'NAS_IP') }}"
-              path: "{{ lookup('env', 'NFS_PATH') }}"
+              server: "{{ nas_ip }}"
+              path: "{{ nfs_path }}"
     
     - name: Create a PersistentVolumeClaim
       k8s:
@@ -152,22 +170,3 @@
             resources:
               requests:
                 storage: 5Gi
-
-  - name: Install NFS client packages
-    apt:
-      name:
-        - nfs-common
-      state: present
-    become: true
-
-  - name: Add NFS mount to /etc/fstab
-    lineinfile:
-      path: /etc/fstab
-      line: "{{ NFS_SERVER }}:{{ NFS_SHARED_DIR }} /nfs-storage nfs defaults 0 0"
-      state: present
-    become: true
-
-  - name: Mount all filesystems in /etc/fstab
-    command:
-      cmd: mount -a
-    become: true
