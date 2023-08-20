@@ -2,25 +2,10 @@
 - hosts: all
   become: yes
   tasks:
-    - name: Remove conflicting Docker sources
-      file:
-        path: "/etc/apt/sources.list.d/docker.list"
-        state: absent
-      become: yes
-
-    - name: Remove Docker keyring (if exists)
-      file:
-        path: "/etc/apt/keyrings/docker.gpg"
-        state: absent
-      become: yes
-
     - name: Update and upgrade apt packages
       apt:
         upgrade: yes
         update_cache: yes
-      register: result
-      until: result is succeeded
-      retries: 3
 
     - name: Install required dependencies
       apt:
@@ -32,27 +17,47 @@
           - software-properties-common
         state: present
 
-    - name: Add Docker's official GPG key
-      apt_key:
-        url: https://download.docker.com/linux/raspbian/gpg
-        state: present
+    - name: Ensure old Docker APT sources are removed
+      file:
+        path: "/etc/apt/sources.list.d/{{ item }}"
+        state: absent
+      with_items:
+        - download_docker_com_linux_raspbian.list
+        - docker.list
 
-    - name: Add Docker repository
+    - name: Ensure Docker GPG keys are removed
+      file:
+        path: "/etc/apt/trusted.gpg.d/docker.gpg"
+        state: absent
+
+    - name: Download and add Docker GPG key
+      shell: curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/docker.gpg
+      become: yes
+      become_method: sudo
+
+    - name: Add Docker APT repository
       apt_repository:
-        repo: "deb [arch=arm64] https://download.docker.com/linux/raspbian bullseye stable"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/docker.gpg] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
         state: present
+      notify: Update cache
 
-    - name: Install Docker CE
-      apt:
-        name: docker-ce
-        update_cache: yes
-        state: present
+    - name: Download and install Docker
+      shell: curl -fsSL https://get.docker.com | sh
+      become: yes
+      become_method: sudo
 
     - name: Ensure Docker service is enabled and started
       service:
         name: docker
         state: started
         enabled: yes
+
+  handlers:
+    - name: Update cache
+      apt:
+        update_cache: yes
+      become: yes
+      become_method: sudo
 
 - hosts: manager
   become: yes
