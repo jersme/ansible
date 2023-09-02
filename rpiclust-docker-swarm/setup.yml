@@ -1,5 +1,5 @@
 ---
-- name: Update and Configure Raspberry Pis
+- name: Update, Configure, and Setup MicroK8s Cluster on Raspberry Pis
   hosts: all
   become: true
 
@@ -30,3 +30,17 @@
 
     - name: Install microk8s via snap
       command: snap install microk8s --classic
+
+    - name: Add node to microk8s on master
+      command: microk8s.add-node
+      register: add_node_output
+      when: "'manager' in group_names"
+
+    - name: Set connection string as fact
+      set_fact:
+        microk8s_connection_string: "{{ add_node_output.stdout }}"
+      when: "'manager' in group_names"
+
+    - name: Join microk8s cluster on worker nodes
+      command: "microk8s.join {{ hostvars[groups['manager'][0]]['microk8s_connection_string'] }}"
+      when: "'workers' in group_names"
