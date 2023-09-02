@@ -54,14 +54,6 @@
       register: add_node_output
       when: "'manager' in group_names"
       tags: skipme
-
-    - name: Run microk8s.add-node to get join command
-      command: microk8s.add-node --format short
-      register: join_command_result
-
-    - name: Display the join command
-      debug:
-        var: join_command_result.stdout | regex_search('(microk8s join .+?)(?:\n|$)', '\\1')
  
     - name: Create NFS Persistent Volume definition on master
       copy:
