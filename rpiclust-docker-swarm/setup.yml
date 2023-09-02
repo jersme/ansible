@@ -1,5 +1,5 @@
 ---
-- name: Update, Configure, and Setup MicroK8s Cluster on Raspberry Pis
+- name: Update, Configure, and Setup MicroK8s Cluster on Raspberry Pis with NFS storage
   hosts: all
   become: true
 
@@ -28,6 +28,24 @@
         delay: 10
         timeout: 300
 
+    - name: Install NFS client utilities
+      apt:
+        name: nfs-common
+        state: present
+
+    - name: Create directory for NFS mount
+      file:
+        path: "{{ nfs_mount_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Mount NFS share
+      mount:
+        path: "{{ nfs_mount_path }}"
+        src: "{{ nfs_address }}"
+        fstype: nfs
+        state: mounted
+
     - name: Install microk8s via snap
       command: snap install microk8s --classic
 
@@ -44,6 +62,75 @@
     - name: Join microk8s cluster on worker nodes
       command: "microk8s.join {{ hostvars[groups['manager'][0]]['microk8s_connection_string'] }}"
       when: "'workers' in group_names"
+
+    - name: Create NFS Persistent Volume definition on master
+      copy:
+        content: |
+          apiVersion: v1
+          kind: PersistentVolume
+          metadata:
+            name: nfs-pv
+          spec:
+            capacity:
+              storage: 10Gi
+            accessModes:
+              - ReadWriteMany
+            persistentVolumeReclaimPolicy: Retain
+            storageClassName: nfs
+            nfs:
+              path: "{{ nfs_address.split(':')[1] }}"
+              server: "{{ nfs_address.split(':')[0] }}"
+        dest: "/home/{{ ansible_ssh_user }}/nfs-pv.yml"
+      when: "'manager' in group_names"
+
+    - name: Create NFS Persistent Volume Claim definition on master
+      copy:
+        content: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: nfs-pvc
+          spec:
+            accessModes:
+              - ReadWriteMany
+            storageClassName: nfs
+            resources:
+              requests:
+                storage: 10Gi
+        dest: "/home/{{ ansible_ssh_user }}/nfs-pvc.yml"
+      when: "'manager' in group_names"
+
+    - name: Create NFS StorageClass definition on master
+      copy:
+        content: |
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: nfs
+          provisioner: kubernetes.io/no-provisioner
+          volumeBindingMode: WaitForFirstConsumer
+        dest: "/home/{{ ansible_ssh_user }}/nfs-sc.yml"
+      when: "'manager' in group_names"
+
+    - name: Apply the NFS Persistent Volume on master
+      command:
+        cmd: "microk8s.kubectl apply -f /home/{{ ansible_ssh_user }}/nfs-pv.yml"
+      when: "'manager' in group_names"
+
+    - name: Apply the NFS Persistent Volume Claim on master
+      command:
+        cmd: "microk8s.kubectl apply -f /home/{{ ansible_ssh_user }}/nfs-pvc.yml"
+      when: "'manager' in group_names"
+
+    - name: Apply the NFS StorageClass on master
+      command:
+        cmd: "microk8s.kubectl apply -f /home/{{ ansible_ssh_user }}/nfs-sc.yml"
+      when: "'manager' in group_names"
+
+    - name: Set NFS StorageClass as default on master
+      command:
+        cmd: "microk8s.kubectl patch storageclass nfs -p '{\"metadata\": {\"annotations\":{\"storageclass.kubernetes.io/is-default-class\":\"true\"}}}'"
+      when: "'manager' in group_names"
 
     - name: Check nodes on the master
       command: microk8s.kubectl get node
