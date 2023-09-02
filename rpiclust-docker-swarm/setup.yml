@@ -71,7 +71,11 @@
         msg: "{{ node_urls }}"
       when: "'manager' in group_names"
 
- 
+    - name: Join worker nodes to microk8s cluster using each URL
+      command: "microk8s.join {{ item }}"
+      loop: "{{ node_urls }}"
+      when: "'worker' in group_names"
+
     - name: Create NFS Persistent Volume definition on master
       copy:
         content: |
