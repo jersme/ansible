@@ -55,28 +55,17 @@
       when: "'manager' in group_names"
       tags: skipme
 
-    - name: Get join command from microk8s
-      command: "microk8s.add-node --format short"
-      register: microk8s_add_node_results
+    - name: Generate microk8s join command on master node
+      hosts: master  # Assuming 'master' is the group or hostname of your master node
+      tasks:
+        - name: Run microk8s.add-node to get join command
+          command: microk8s.add-node --format short
+          register: join_command_result
 
+        - name: Display the join command
+          debug:
+            var: join_command_result.stdout
 
-    - name: Debug microk8s_add_node_results
-      debug:
-        var: microk8s_add_node_results
-        
-    - name: Set microk8s_join_command as fact for each worker
-      set_fact:
-        worker_join_command: "{{ microk8s_add_node_results.stdout.split('\n')[0] }}"
-      when: "'worker' in group_names"
-
-    - name: Join microk8s cluster using worker-specific command
-      command: "{{ worker_join_command }}"
-      when: "'workers' in group_names"
-
-
-    - name: Join microk8s cluster using worker-specific command
-      command: "{{ worker_join_command }}"
-      when: "'workers' in group_names"
  
     - name: Create NFS Persistent Volume definition on master
       copy:
