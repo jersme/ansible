@@ -56,11 +56,11 @@
 
     - name: Set connection string as fact
       set_fact:
-        microk8s_connection_string: "{{ add_node_output.stdout }}"
+        microk8s_connection_string: "{{ add_node_output.stdout | regex_search('(microk8s join [^\\n]+)') | first }}"
       when: "'manager' in group_names"
 
     - name: Join microk8s cluster on worker nodes
-      command: "microk8s.join {{ hostvars[groups['manager'][0]]['microk8s_connection_string'] }}"
+      shell: "{{ hostvars[groups['manager'][0]]['microk8s_connection_string'] }}"
       when: "'workers' in group_names"
 
     - name: Create NFS Persistent Volume definition on master
