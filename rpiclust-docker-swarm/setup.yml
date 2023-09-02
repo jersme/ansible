@@ -56,13 +56,13 @@
 
     - name: Get the microk8s join command on master
       command: "microk8s.add-node --format short"
-      register: add_node_output
+      register: add_node_output_raw
       when: "'manager' in group_names"
       changed_when: false
 
     - name: Set microk8s_join_command as fact
       set_fact:
-        microk8s_join_command: "{{ add_node_output.stdout }}"
+        microk8s_join_command: "{{ add_node_output_raw.stdout.split('\n')[0] }}"
       when: "'manager' in group_names"
 
     - name: Debug - Check the join command on master
