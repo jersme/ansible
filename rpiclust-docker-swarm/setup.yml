@@ -66,9 +66,8 @@
         
     - name: Set microk8s_join_command as fact for each worker
       set_fact:
-        microk8s_join_command: "{{ microk8s_add_node_results.stdout.split('\n')[0] }}"
+        worker_join_command: "{{ microk8s_add_node_results.stdout.split('\n')[0] }}"
       when: "'worker' in group_names"
-
 
     - name: Join microk8s cluster using worker-specific command
       command: "{{ worker_join_command }}"
