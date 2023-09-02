@@ -80,7 +80,7 @@
 
     - name: Join microk8s cluster using worker-specific command
       command: "{{ worker_join_command }}"
-      when: "'workers' in group_names" and worker_join_command is defined
+      when: "'workers' in group_names and worker_join_command is defined'"
 
     - name: Create NFS Persistent Volume definition on master
       copy:
