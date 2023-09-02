@@ -64,11 +64,11 @@
       debug:
         var: microk8s_add_node_results
         
-    - name: Set microk8s_join_command as fact for each worker
+     - name: Set microk8s_join_command as fact for each worker
       set_fact:
-        worker_join_command: "{{ item.stdout_lines[0] }}"
-      with_items: "{{ microk8s_add_node_results.results }}"
-      when: "'workers' in group_names"
+        microk8s_join_command: "{{ microk8s_add_node_results.stdout.split('\n')[0] }}"
+      when: "'worker' in group_names"
+
 
 
     - name: Join microk8s cluster using worker-specific command
