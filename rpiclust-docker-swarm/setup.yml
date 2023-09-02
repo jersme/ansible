@@ -61,7 +61,7 @@
 
     - name: Display the join command
       debug:
-        var: join_command_result.stdout
+        var: join_command_result.stdout.split('\n')[0]
  
     - name: Create NFS Persistent Volume definition on master
       copy:
