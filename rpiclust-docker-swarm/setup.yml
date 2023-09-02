@@ -56,11 +56,13 @@
 
     - name: Set connection string as fact
       set_fact:
-        microk8s_connection_string: "{{ item }}"
-      with_items: "{{ add_node_output.stdout.split('\\n') }}"
+        microk8s_connection_string: "{{ line }}"
+      loop: "{{ add_node_output.stdout.split('\\n') }}"
+      loop_control:
+        loop_var: line
       when: 
         - "'manager' in group_names"
-        - item.startswith('microk8s join')
+        - "line.startswith('microk8s join')"
 
     - name: Debug - Print extracted connection string
       debug:
