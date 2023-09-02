@@ -44,3 +44,13 @@
     - name: Join microk8s cluster on worker nodes
       command: "microk8s.join {{ hostvars[groups['manager'][0]]['microk8s_connection_string'] }}"
       when: "'workers' in group_names"
+
+    - name: Check nodes on the master
+      command: microk8s.kubectl get node
+      register: get_nodes_output
+      when: "'manager' in group_names"
+
+    - name: Print nodes from the master
+      debug:
+        msg: "{{ get_nodes_output.stdout }}"
+      when: "'manager' in group_names"
