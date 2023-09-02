@@ -62,7 +62,7 @@
       changed_when: false
       tags: skipme
 
-    - name: Generate worker-specific join command
+    - name: Generate worker-specific join command for each worker
       command: "microk8s.add-node --format short"
       register: worker_join_command_raw
       when: "'manager' in group_names"
@@ -76,6 +76,11 @@
         worker_join_command: "{{ worker_join_command_raw.results | map(attribute='stdout') | list }}"
       when: "'manager' in group_names"
 
+    - name: Join microk8s cluster using worker-specific command
+      command: "{{ item }}"
+      with_items: "{{ worker_join_command }}"
+      when: "'workers' in group_names"
+      
     - name: Create NFS Persistent Volume definition on master
       copy:
         content: |
