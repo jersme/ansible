@@ -63,21 +63,24 @@
       tags: skipme
 
     # For each worker, generate a join token on the master
-    - name: Generate join command for this worker
+    - name: Generate join command for each worker
       command: "microk8s.add-node --format short"
-      run_once: true
-      register: worker_join_command
+      register: worker_join_commands
       delegate_to: "{{ groups['manager'][0] }}"
-      when: "'workers' in group_names"
+      run_once: true
+      loop: "{{ groups['workers'] }}"
+      loop_control:
+        label: "{{ item }}"
+      when: "'manager' in group_names"
 
-    - name: Debug - Print worker_join_command
-      debug:
-        var: worker_join_command
+    - name: Set join command as fact for each worker
+      set_fact:
+        worker_join_command: "{{ worker_join_commands['results'] | selectattr('item', 'equalto', inventory_hostname) | map(attribute='stdout') | first }}"
       when: "'workers' in group_names"
 
     - name: Join microk8s cluster using worker-specific command
-      command: "{{ worker_join_command.stdout.split('\n')[0] }}"
-      when: "'workers' in group_names"
+      command: "{{ worker_join_command }}"
+      when: "'workers' in group_names" and worker_join_command is defined
 
     - name: Create NFS Persistent Volume definition on master
       copy:
