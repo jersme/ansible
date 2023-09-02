@@ -54,6 +54,23 @@
       register: add_node_output
       when: "'manager' in group_names"
       tags: skipme
+
+    - name: Add node to microk8s on master with JSON output
+      command: microk8s.add-node --format json
+      register: add_node_output_json
+      when: "'manager' in group_names"
+      tags: skipme
+
+    - name: Extract URLs from the add-node JSON output
+      set_fact:
+        node_urls: "{{ add_node_output_json.stdout | from_json | json_query('urls') }}"
+      when: "'manager' in group_names"
+
+    - name: Print extracted URLs
+      debug:
+        msg: "{{ node_urls }}"
+      when: "'manager' in group_names"
+
  
     - name: Create NFS Persistent Volume definition on master
       copy:
