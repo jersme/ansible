@@ -67,6 +67,7 @@
       register: worker_join_command_raw
       when: "'manager' in group_names"
       delegate_to: "{{ item }}"
+      delegate_facts: true
       with_items: "{{ groups['workers'] }}"
       run_once: true
       changed_when: false
