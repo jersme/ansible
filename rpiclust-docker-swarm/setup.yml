@@ -65,6 +65,16 @@
         microk8s_join_command: "{{ add_node_output.stdout }}"
       when: "'manager' in group_names"
 
+    - name: Debug - Check the join command on master
+      debug:
+        msg: "{{ microk8s_join_command }}"
+      when: "'manager' in group_names"
+
+    - name: Debug - Check the join command on workers
+      debug:
+        msg: "{{ hostvars[groups['manager'][0]].microk8s_join_command }}"
+      when: "'workers' in group_names"
+
     - name: Join microk8s cluster on worker nodes
       command: "{{ hostvars[groups['manager'][0]].microk8s_join_command }}"
       when: "'workers' in group_names"
