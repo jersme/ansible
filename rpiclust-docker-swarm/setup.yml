@@ -55,12 +55,10 @@
       when: "'manager' in group_names"
       tags: skipme
 
-    - name: Get the microk8s join command on master
+    - name: Get join command from microk8s
       command: "microk8s.add-node --format short"
-      register: add_node_output_raw
-      when: "'manager' in group_names"
-      changed_when: false
-      tags: skipme
+      register: microk8s_add_node_results
+
 
     - name: Debug microk8s_add_node_results
       debug:
