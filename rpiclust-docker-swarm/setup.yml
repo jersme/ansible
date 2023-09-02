@@ -67,19 +67,18 @@
       register: worker_join_command_raw
       when: "'manager' in group_names"
       delegate_to: "{{ item }}"
-      delegate_facts: true
       with_items: "{{ groups['workers'] }}"
       run_once: true
       changed_when: false
 
-    - name: Set microk8s_join_command as fact for workers
+    - name: Set microk8s_join_command as fact for each worker
       set_fact:
-        worker_join_command: "{{ worker_join_command_raw.results | map(attribute='stdout') | list }}"
-      when: "'manager' in group_names"
+        worker_join_command: "{{ item.stdout }}"
+      when: inventory_hostname == item.item
+      with_items: "{{ worker_join_command_raw.results }}"
 
     - name: Join microk8s cluster using worker-specific command
-      command: "{{ item }}"
-      with_items: "{{ worker_join_command }}"
+      command: "{{ worker_join_command }}"
       when: "'workers' in group_names"
       
     - name: Create NFS Persistent Volume definition on master
