@@ -22,10 +22,14 @@ set nfsAddress to text returned of (display dialog "Enter the NFS Address (IP:/p
 -- Prompt for Folder Path
 set destFolderPath to text returned of (display dialog "Enter the folder path to save the inventory:" default answer "/Users/jeroen/Repos/ansible/rpiclust-docker-swarm")
 
+-- Prompt for ansible_become_pass
+set ansibleBecomePass to text returned of (display dialog "Enter the Ansible Become Password:" default answer "")
+
 set inventoryContent to "[all:vars]
 ansible_ssh_user=" & sshUser & "
 nfs_mount_path=" & nfsMountPath & "
 nfs_address=" & nfsAddress & "
+ansible_become_pass=" & ansibleBecomePass & "
 
 [manager]
 " & managerIP & "
