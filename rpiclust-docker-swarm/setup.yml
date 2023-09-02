@@ -56,8 +56,14 @@
 
     - name: Set connection string as fact
       set_fact:
-        microk8s_connection_string: "{{ add_node_output.stdout.split('\\n')[1] }}"
+        microk8s_connection_string: "{{ add_node_output.stdout | regex_search('(microk8s join [^\\n]+)') | first }}"
       when: "'manager' in group_names"
+
+    - name: Debug - Print extracted connection string
+      debug:
+        msg: "{{ microk8s_connection_string }}"
+      when: "'manager' in group_names"
+
 
     - name: Join microk8s cluster on worker nodes
       shell: "{{ hostvars[groups['manager'][0]]['microk8s_connection_string'] }}"
