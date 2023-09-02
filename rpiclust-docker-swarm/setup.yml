@@ -56,8 +56,10 @@
 
     - name: Set connection string as fact
       set_fact:
-        microk8s_connection_string: "{{ add_node_output.stdout | regex_search('(microk8s join [^\\n]+)') | first }}"
+        microk8s_connection_string: "{{ item }}"
       when: "'manager' in group_names"
+      with_items: "{{ add_node_output.stdout.split('\\n') }}"
+      when: item.startswith('microk8s join')
 
     - name: Debug - Print extracted connection string
       debug:
