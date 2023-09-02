@@ -62,6 +62,10 @@
       changed_when: false
       tags: skipme
 
+    - name: Debug microk8s_add_node_results
+      debug:
+        var: microk8s_add_node_results
+        
     - name: Set microk8s_join_command as fact for each worker
       set_fact:
         worker_join_command: "{{ item.stdout_lines[0] }}"
