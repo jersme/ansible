@@ -62,20 +62,17 @@
       changed_when: false
       tags: skipme
 
-    - name: Generate worker-specific join command for each worker
-      command: "microk8s.add-node --format short"
-      register: worker_join_command_raw
-      when: "'manager' in group_names"
-      delegate_to: "{{ item }}"
-      with_items: "{{ groups['workers'] }}"
-      run_once: true
-      changed_when: false
-
     - name: Set microk8s_join_command as fact for each worker
       set_fact:
-        worker_join_command: "{{ item.stdout }}"
-      when: inventory_hostname == item.item
-      with_items: "{{ worker_join_command_raw.results }}"
+        worker_join_command: "{{ item.stdout_lines[0] }}"
+      with_items: "{{ microk8s_add_node_results.results }}"
+      when: "'workers' in group_names"
+
+
+    - name: Join microk8s cluster using worker-specific command
+      command: "{{ worker_join_command }}"
+      when: "'workers' in group_names"
+
 
     - name: Join microk8s cluster using worker-specific command
       command: "{{ worker_join_command }}"
