@@ -54,24 +54,19 @@
       register: add_node_output
       when: "'manager' in group_names"
 
-    - name: Set connection string as fact
-      set_fact:
-        microk8s_connection_string: "{{ line }}"
-      loop: "{{ add_node_output.stdout.split('\\n') }}"
-      loop_control:
-        loop_var: line
-      when: 
-        - "'manager' in group_names"
-        - "line.startswith('microk8s join')"
+    - name: Get the microk8s join command on master
+      command: "microk8s.add-node --format short"
+      register: add_node_output
+      when: "'manager' in group_names"
+      changed_when: false
 
-    - name: Debug - Print extracted connection string
-      debug:
-        msg: "{{ microk8s_connection_string }}"
+    - name: Set microk8s_join_command as fact
+      set_fact:
+        microk8s_join_command: "{{ add_node_output.stdout }}"
       when: "'manager' in group_names"
 
-
     - name: Join microk8s cluster on worker nodes
-      shell: "{{ hostvars[groups['manager'][0]]['microk8s_connection_string'] }}"
+      command: "{{ hostvars[groups['manager'][0]].microk8s_join_command }}"
       when: "'workers' in group_names"
 
     - name: Create NFS Persistent Volume definition on master
