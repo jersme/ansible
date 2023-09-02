@@ -70,6 +70,11 @@
       delegate_to: "{{ groups['manager'][0] }}"
       when: "'workers' in group_names"
 
+    - name: Debug - Print worker_join_command
+      debug:
+        var: worker_join_command
+      when: "'workers' in group_names"
+
     - name: Join microk8s cluster using worker-specific command
       command: "{{ worker_join_command.stdout.split('\n')[0] }}"
       when: "'workers' in group_names"
